@@ -1,6 +1,6 @@
 #
 # Automatically generated file; DO NOT EDIT.
-# Linux/arm64 4.4.168 Kernel Configuration
+# Linux/arm64 4.4.173-LA.UM.6.4.r1-12100-8x98.0 Kernel Configuration
 #
 CONFIG_CUSTOM_ROM=y
 CONFIG_ARM64=y
@@ -1296,6 +1296,7 @@ CONFIG_UID_SYS_STATS=y
 # CONFIG_BOOTLOADER_LOG is not set
 # CONFIG_QPNP_MISC is not set
 # CONFIG_MEMORY_STATE_TIME is not set
+CONFIG_FORCE_FAST_CHARGE=y
 # CONFIG_C2PORT is not set
 
 #
@@ -1977,6 +1978,7 @@ CONFIG_HW_RANDOM_MSM_LEGACY=y
 # CONFIG_MSM_SMD_PKT is not set
 # CONFIG_XILLYBUS is not set
 CONFIG_MSM_ADSPRPC=y
+# CONFIG_MSM_ADSPRPC_SECURE_ENABLE is not set
 # CONFIG_MSM_RDBG is not set
 
 #
