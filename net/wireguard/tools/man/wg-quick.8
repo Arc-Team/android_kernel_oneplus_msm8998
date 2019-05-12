@@ -11,6 +11,8 @@ wg-quick - set up a WireGuard interface simply
 .I down
 |
 .I save
+|
+.I strip
 ] [
 .I CONFIG_FILE
 |
@@ -27,7 +29,11 @@ an interface. Running \fIup\fP adds a WireGuard interface, brings up the interfa
 supplied IP addresses, sets up mtu and routes, and optionally runs pre/post up scripts. Running \fIdown\fP
 optionally saves the current configuration, removes the WireGuard interface, and optionally
 runs pre/post down scripts. Running \fIsave\fP saves the configuration of an existing
-interface without bringing the interface down.
+interface without bringing the interface down. Use \fIstrip\fP to output a configuration file
+with all
+.BR wg-quick (8)-specific
+options removed, suitable for use with
+.BR wg (8).
 
 \fICONFIG_FILE\fP is a configuration file, whose filename is the interface name
 followed by `.conf'. Otherwise, \fIINTERFACE\fP is an interface name, with configuration
@@ -205,6 +211,32 @@ Notice the two `Address' lines at the top, and that `SaveConfig' is set to `true
 that the configuration file should be saved on shutdown using the current status of the
 interface.
 
+A combination of the `Table', `PostUp', and `PreDown' fields may be used for policy routing
+as well. For example, the following may be used to send SSH traffic (TCP port 22) traffic
+through the tunnel:
+
+    [Interface]
+.br
+    Address = 10.192.122.1/24
+.br
+    PrivateKey = yAnz5TF+lXXJte14tji3zlMNq+hd2rYUIgJBgB3fBmk=
+.br
+    ListenPort = 51820
+.br
+    \fBTable = 1234\fP
+.br
+    \fBPostUp = ip rule add ipproto tcp dport 22 table 1234\fP
+.br
+    \fBPreDown = ip rule delete ipproto tcp dport 22 table 1234\fP
+.br
+
+.br
+    [Peer]
+.br
+    PublicKey = xTIBA5rboUvnH4htodjb6e697QjLERt1NAB4mZqp8Dg=
+.br
+    AllowedIPs = 0.0.0.0/0
+
 These configuration files may be placed in any directory, putting the desired interface name
 in the filename:
 
@@ -216,6 +248,13 @@ For convenience, if only an interface name is supplied, it automatically chooses
 \fB    # wg-quick up wgnet0\fP
 
 This will load the configuration file `/etc/wireguard/wgnet0.conf'.
+
+The \fIstrip\fP command is useful for reloading configuration files without disrupting active
+sessions:
+
+\fB    # wg addconf wgnet0 <(wg-quick strip wgnet0)\fP
+
+(Note that the above command will add and update peers but will not remove peers.)
 
 .SH SEE ALSO
 .BR wg (8),

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0
 /*
- * Copyright (C) 2015-2018 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+ * Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
  */
 
 #include "version.h"
@@ -28,42 +28,41 @@ static int __init mod_init(void)
 		return ret;
 
 #ifdef DEBUG
-	if (!allowedips_selftest() || !packet_counter_selftest() ||
-	    !ratelimiter_selftest())
+	if (!wg_allowedips_selftest() || !wg_packet_counter_selftest() ||
+	    !wg_ratelimiter_selftest())
 		return -ENOTRECOVERABLE;
 #endif
-	noise_init();
+	wg_noise_init();
 
-	ret = device_init();
+	ret = wg_device_init();
 	if (ret < 0)
 		goto err_device;
 
-	ret = genetlink_init();
+	ret = wg_genetlink_init();
 	if (ret < 0)
 		goto err_netlink;
 
 	pr_info("WireGuard " WIREGUARD_VERSION " loaded. See www.wireguard.com for information.\n");
-	pr_info("Copyright (C) 2015-2018 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.\n");
+	pr_info("Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.\n");
 
 	return 0;
 
 err_netlink:
-	device_uninit();
+	wg_device_uninit();
 err_device:
 	return ret;
 }
 
 static void __exit mod_exit(void)
 {
-	genetlink_uninit();
-	device_uninit();
-	pr_debug("WireGuard unloaded\n");
+	wg_genetlink_uninit();
+	wg_device_uninit();
 }
 
 module_init(mod_init);
 module_exit(mod_exit);
 MODULE_LICENSE("GPL v2");
-MODULE_DESCRIPTION("Fast, modern, and secure VPN tunnel");
+MODULE_DESCRIPTION("WireGuard secure network tunnel");
 MODULE_AUTHOR("Jason A. Donenfeld <Jason@zx2c4.com>");
 MODULE_VERSION(WIREGUARD_VERSION);
 MODULE_ALIAS_RTNL_LINK(KBUILD_MODNAME);

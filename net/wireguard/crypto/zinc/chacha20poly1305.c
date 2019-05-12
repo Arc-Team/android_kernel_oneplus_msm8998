@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0 OR MIT
 /*
- * Copyright (C) 2015-2018 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
+ * Copyright (C) 2015-2019 Jason A. Donenfeld <Jason@zx2c4.com>. All Rights Reserved.
  *
  * This is an implementation of the ChaCha20Poly1305 AEAD construction.
  *
@@ -10,26 +10,24 @@
 #include <zinc/chacha20poly1305.h>
 #include <zinc/chacha20.h>
 #include <zinc/poly1305.h>
+#include "selftest/run.h"
+
 #include <asm/unaligned.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/init.h>
-#include <crypto/scatterwalk.h>
+#include <crypto/scatterwalk.h> // For blkcipher_walk.
 
 static const u8 pad0[16] = { 0 };
 
-static struct crypto_alg chacha20_alg = {
-	.cra_blocksize = 1,
-	.cra_alignmask = sizeof(u32) - 1
-};
-static struct crypto_blkcipher chacha20_cipher = {
-	.base = {
-		.__crt_alg = &chacha20_alg
-	}
-};
-static struct blkcipher_desc chacha20_desc = {
-	.tfm = &chacha20_cipher
-};
+static struct blkcipher_desc desc = { .tfm = &(struct crypto_blkcipher){
+	.base = { .__crt_alg = &(struct crypto_alg){
+		.cra_blocksize = 1,
+#ifndef CONFIG_HAVE_EFFICIENT_UNALIGNED_ACCESS
+		.cra_alignmask = sizeof(u32) - 1
+#endif
+	} }
+} };
 
 static inline void
 __chacha20poly1305_encrypt(u8 *dst, const u8 *src, const size_t src_len,
@@ -112,7 +110,7 @@ bool chacha20poly1305_encrypt_sg(struct scatterlist *dst,
 
 	if (likely(src_len)) {
 		blkcipher_walk_init(&walk, dst, src, src_len);
-		ret = blkcipher_walk_virt_block(&chacha20_desc, &walk,
+		ret = blkcipher_walk_virt_block(&desc, &walk,
 						CHACHA20_BLOCK_SIZE);
 		while (walk.nbytes >= CHACHA20_BLOCK_SIZE) {
 			size_t chunk_len =
@@ -123,7 +121,7 @@ bool chacha20poly1305_encrypt_sg(struct scatterlist *dst,
 			poly1305_update(&poly1305_state, walk.dst.virt.addr,
 					chunk_len, simd_context);
 			simd_relax(simd_context);
-			ret = blkcipher_walk_done(&chacha20_desc, &walk,
+			ret = blkcipher_walk_done(&desc, &walk,
 					walk.nbytes % CHACHA20_BLOCK_SIZE);
 		}
 		if (walk.nbytes) {
@@ -131,7 +129,7 @@ bool chacha20poly1305_encrypt_sg(struct scatterlist *dst,
 				 walk.src.virt.addr, walk.nbytes, simd_context);
 			poly1305_update(&poly1305_state, walk.dst.virt.addr,
 					walk.nbytes, simd_context);
-			ret = blkcipher_walk_done(&chacha20_desc, &walk, 0);
+			ret = blkcipher_walk_done(&desc, &walk, 0);
 		}
 	}
 	if (unlikely(ret))
@@ -255,7 +253,7 @@ bool chacha20poly1305_decrypt_sg(struct scatterlist *dst,
 	dst_len = src_len - POLY1305_MAC_SIZE;
 	if (likely(dst_len)) {
 		blkcipher_walk_init(&walk, dst, src, dst_len);
-		ret = blkcipher_walk_virt_block(&chacha20_desc, &walk,
+		ret = blkcipher_walk_virt_block(&desc, &walk,
 						CHACHA20_BLOCK_SIZE);
 		while (walk.nbytes >= CHACHA20_BLOCK_SIZE) {
 			size_t chunk_len =
@@ -266,7 +264,7 @@ bool chacha20poly1305_decrypt_sg(struct scatterlist *dst,
 			chacha20(&chacha20_state, walk.dst.virt.addr,
 				 walk.src.virt.addr, chunk_len, simd_context);
 			simd_relax(simd_context);
-			ret = blkcipher_walk_done(&chacha20_desc, &walk,
+			ret = blkcipher_walk_done(&desc, &walk,
 					walk.nbytes % CHACHA20_BLOCK_SIZE);
 		}
 		if (walk.nbytes) {
@@ -274,7 +272,7 @@ bool chacha20poly1305_decrypt_sg(struct scatterlist *dst,
 					walk.nbytes, simd_context);
 			chacha20(&chacha20_state, walk.dst.virt.addr,
 				 walk.src.virt.addr, walk.nbytes, simd_context);
-			ret = blkcipher_walk_done(&chacha20_desc, &walk, 0);
+			ret = blkcipher_walk_done(&desc, &walk, 0);
 		}
 	}
 	if (unlikely(ret))
@@ -339,7 +337,7 @@ bool xchacha20poly1305_decrypt(u8 *dst, const u8 *src, const size_t src_len,
 }
 EXPORT_SYMBOL(xchacha20poly1305_decrypt);
 
-#include "selftest/chacha20poly1305.h"
+#include "selftest/chacha20poly1305.c"
 
 #ifndef COMPAT_ZINC_IS_A_MODULE
 int __init chacha20poly1305_mod_init(void)
@@ -347,10 +345,9 @@ int __init chacha20poly1305_mod_init(void)
 static int __init mod_init(void)
 #endif
 {
-#ifdef DEBUG
-	if (!chacha20poly1305_selftest())
+	if (!selftest_run("chacha20poly1305", chacha20poly1305_selftest,
+			  NULL, 0))
 		return -ENOTRECOVERABLE;
-#endif
 	return 0;
 }
 
